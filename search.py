@@ -28,7 +28,7 @@ def shift_table(sub_string: str) -> dict[str, int]:
 def search_one(
     string: str,
     sub_string: str,
-    case_sensitivity: bool = True
+    case_sensitivity: bool = False
 ):
     """Поиск всех вхождений одной подстроки в строку."""
 
@@ -69,7 +69,7 @@ def search_one(
 def search_many(
     string: str,
     sub_string: list[str] | tuple[str, ...],
-    case_sensitivity: bool = True,
+    case_sensitivity: bool = False,
     method: str = 'first',
     count: int | None = None
     ) -> dict[str, tuple[int, ...] | None] | None:
@@ -97,7 +97,7 @@ def search_many(
 def search(
     string: str,
     sub_string: str | list[str] | tuple[str, ...],
-    case_sensitivity: bool = True,
+    case_sensitivity: bool = False,
     method: str = 'first',
     count: int | None = None
     ) -> tuple[int, ...] | dict[str, tuple[int, ...] | None] | None:
@@ -114,9 +114,8 @@ def search(
     if not result:
         return None
 
-    if method == "last":
-        result.reverse()
-        result = tuple(result)
+    if method == "last" and result:
+        result = tuple(reversed(list(result)))
     if count is not None:
         result = result[:count]
     return result
