@@ -96,88 +96,60 @@ ANSI_RESET = "\033[0m"
 MAX_OUTPUT_LINES = 10
 
 
-def print_colored_matches(string, patterns, case_sensitivity, method, count):
+def print_colored_matches(
+    string: str,
+    patterns: str | list[str] | tuple[str, ...],
+    case_sensitivity: bool = True,
+    method: str = 'first',
+    count: int | None = None
+    ) -> None:
     """Печатает до 10 строк с найденными подстроками,
     выделяя каждую подстроку своим цветом."""
-
     if not string or not patterns:
         return
 
-    pattern_colors = {
-        pattern: ANSI_COLORS[index % len(ANSI_COLORS)]
-        for index, pattern in enumerate(patterns)
+    colors = {
+        p: ANSI_COLORS[i % len(ANSI_COLORS)]
+        for i, p in enumerate(patterns)
     }
 
-    # Собираем все позиции для каждого шаблона
-    all_matches = []
-    for pattern in patterns:
-        positions = search_one(string, pattern, case_sensitivity)
+    matches = sorted(
+        (pos, p)
+        for p in patterns
+        for pos in (search_one(string, p, case_sensitivity) or ())
+    )
+    if method == "last":
+        matches.reverse()
+    if count is not None:
+        matches = matches[:count]
+    matches.sort()
 
-        if positions:
-            for position in positions:
-                all_matches.append((position, pattern))
-
-    if not all_matches:
-        return
-
-    # Сортируем по позиции, чтобы корректно собирать строки
-    all_matches.sort(key=lambda item: item[0])
-
-    if method == "last" and count is not None:
-        all_matches.sort(key=lambda x: x[0], reverse=True)
-        all_matches = all_matches[:count]
-        all_matches.sort(key=lambda x: x[0])
-
-    if method == "first" and count is not None:
-        all_matches = all_matches[:count]
-
-    printed_lines = 0
-    line_start = 0
-
-    while line_start < len(string) and printed_lines < MAX_OUTPUT_LINES:
-        line_end = string.find("\n", line_start)
-        if line_end == -1:
-            line_end = len(string)
-
-        line = string[line_start:line_end]
-
-        # Позиции вхождений, относящиеся к текущей строке
-        line_matches = [
-            (position - line_start, pattern)
-            for position, pattern in all_matches
-            if line_start <= position < line_end
-        ]
-
-        if line_matches:
-            colored_line = ""
-            cursor = 0
-
-            for relative_position, pattern in line_matches:
-                match_end = relative_position + len(pattern)
-
-                if relative_position < cursor:
+    printed = 0
+    offset = 0
+    for line in string.split("\n"):
+        marks = [(pos - offset, p) for pos, p in matches if offset <= pos < offset + len(line)]
+        if marks:
+            out, cursor = [], 0
+            for rel, p in marks:
+                if rel < cursor:
                     continue
-
-                colored_line += line[cursor:relative_position]
-                colored_line += (
-                    f"{pattern_colors[pattern]}"
-                    f"{line[relative_position:match_end]}"
-                    f"{ANSI_RESET}"
+                out += [
+                    line[cursor:rel],
+                    colors[p],
+                    line[rel:rel + len(p)],
+                    ANSI_RESET,
+                ]
+                cursor = rel + len(p)
+            out.append(line[cursor:])
+            print("".join(out))
+            printed += 1
+            if printed >= MAX_OUTPUT_LINES:
+                print(
+                    f"\n[Вывод ограничен {MAX_OUTPUT_LINES} строками]",
+                    file=sys.stderr,
                 )
-                cursor = match_end
-
-            colored_line += line[cursor:]
-
-            print(colored_line)
-            printed_lines += 1
-
-        line_start = line_end + 1
-
-    if printed_lines == MAX_OUTPUT_LINES and line_start < len(string):
-        print(
-            f"\n[Вывод ограничен {MAX_OUTPUT_LINES} строками]",
-            file=sys.stderr,
-        )
+                break
+        offset += len(line) + 1
 
 
 def main(argv=None):
